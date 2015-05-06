@@ -1,7 +1,7 @@
 <?php
 
 /**
- * QueryBuilder 
+ * QueryBuilder - Постройка запроса
  * 
  * @author Romens
  */
@@ -16,8 +16,6 @@ class QueryBuilder {
      * @var string
      */
     public $SQL;
-    
-    private $SET;
     
     private $registr = array(
         'column' => array(),
@@ -43,13 +41,16 @@ class QueryBuilder {
 	 * @return PDO
 	 */
     public function __construct(PDO $PDO = null) {
-        $this->PDO = $PDO;
-            if ($this->PDO instanceof PDO) {
-                return $this;
+        if(empty($PDO)){
+            $this->PDO = Model::$PDO;
+        } else {
+            if($PDO instanceof PDO) {
+                $this->PDO = $PDO;
             } else {
-                throw new Exception('Not PDO class');
+                throw new RemusException('Пиздец');
             }
-        $this->PDO = null;
+        }
+        return $this->PDO;
     }
     
 	/**
@@ -356,12 +357,10 @@ class QueryBuilder {
                     }
                 }
                 $STH->execute();
-                $STH->setFetchMode(PDO::FETCH_ASSOC);
-                $this->result = $STH->fetchAll();
+                $this->result = $STH->fetchAll(PDO::FETCH_ASSOC);
             } elseif (array_shift($this->operation) == NULL) {
                 $STH->execute();
-                $STH->setFetchMode(PDO::FETCH_ASSOC);
-                $this->result = $STH->fetchAll();
+                $this->result = $STH->fetchAll(PDO::FETCH_ASSOC);
             } else{
                 if($this->bind <> null){
                     $STH->execute($this->bind);
@@ -373,7 +372,20 @@ class QueryBuilder {
         } catch (PDOException $exc) {
             echo $exc->getTraceAsString();
         }
-        self::$lastInsertID = $this->GetLastID();
+        if($this->operation[0] == 'insert'){
+            self::$lastInsertID = $this->GetLastID();
+        }
+        
+        if(CheckFlag('REMUSPANEL')){
+            
+            $trace = debug_backtrace(); 
+            
+            RemusPanel::addData('query', array(
+                'sql'       => $this->SQL,
+                'result'    => RemusPanel::types($this->result),
+                'trace'     => $trace[1]
+            ));
+        }
     }
     
     /**
